@@ -1,7 +1,7 @@
 # Sales-Forecasting-Dynamic-Pricing-Strategy
 
-![1](img/1.png)
+![1](plots/1.png)
 
-![1](img/2.png)
+![1](plots/2.png)
 
-![1](img/3.png)
+![1](plots/3.png)
