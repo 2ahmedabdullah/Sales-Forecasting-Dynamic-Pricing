@@ -36,8 +36,6 @@
 
 ![1](plots/19.png)
 
-![1](plots/20.png)
-
 ![1](plots/21.png)
 
 ![1](plots/22.png)
@@ -45,6 +43,4 @@
 ![1](plots/23.png)
 
 ![1](plots/24.png)
-
-![1](plots/25.png)
 
