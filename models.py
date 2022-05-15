@@ -9,6 +9,7 @@ Created on Tue Feb 15 12:42:15 2022
 
 import pandas as pd
 import numpy as np
+import shap
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
@@ -26,6 +27,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.linear_model import Ridge
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
 
 
 plot_path = './plots/'
@@ -61,6 +63,52 @@ file_name = "xgb_reg.pkl"
 xgb.feature_importances_
 plt.barh(list(x_train), xgb.feature_importances_)
 
+#Available importance_types = [‘weight’, ‘gain’, ‘cover’, total_gain, total_cover]
+
+feature_imp = xgb.get_booster().get_score(importance_type = 'gain')
+key = list(feature_imp.keys())
+value = list(feature_imp.values())
+top_feats = pd.DataFrame({'Metric': key, 'Importance': value})
+top_feats = top_feats.sort_values('Importance', ascending = False)
+top_feats['Importance'] = top_feats['Importance']/top_feats['Importance'].sum()*100
+top_feats = top_feats.set_index(top_feats['Metric'])
+
+'''
+#plot
+top_feats.plot(kind = 'barh', title = 'Most Important Features', color = 'blue').invert_yaxis()
+plt.axvline(x = 5, ymin = 0, ymax= 10, color ='red')
+plt.show()
+'''
+
+
+#shapley plots
+explainer = shap.TreeExplainer(xgb)
+shap_values = explainer.shap_values(x_train)
+
+shap.summary_plot(shap_values, features = x_train, feature_names = x_train.columns,
+                  show = False, plot_size = (10, 7), max_display = len(x_train.columns))
+plt.title('Shap Plot', fontsize = 20)
+plt.show()
+
+
+
+#importance acc to shapley values
+mean_shaps = np.abs(shap_values).mean(0)
+shap_importance = pd.DataFrame(list(zip(x_train.columns, mean_shaps)), columns = ['Metric', 'Mean Shap Value'])
+shap_importance['Mean Shap Value'] = shap_importance['Mean Shap Value']/shap_importance['Mean Shap Value'].sum()*100
+shap_importance = shap_importance.sort_values('Mean Shap Value', ascending = False)
+shap_importance = shap_importance.set_index(shap_importance['Metric'])
+
+shap_importance.plot(kind = 'barh', title = 'Most Important Features', color = 'blue').invert_yaxis()
+plt.axvline(x = 5, ymin = 0, ymax= 10, color ='red')
+plt.xlabel('% Importance')
+z = shap_importance['Mean Shap Value'].to_list()
+m = [i for i in z if i >= 5]
+plt.xlim(0, max(z)*1.2)
+for i in range(0, len(m)):
+    plt.text(z[i]+0.5, i, str(int(round(z[i], 0))) + '%', color='black', fontweight='bold', fontsize=10, va='center')
+plt.show()
+
 
 plt.figure(figsize=(10, 6), dpi=80)
 plt.scatter(y_test, yhat)
@@ -73,6 +121,7 @@ plt.savefig(plot_path+'7.png')
 plt.show()
 
 
+
 # calculate Pearson's correlation
 corr, _ = pearsonr(y_test, yhat)
 print('Pearsons correlation: %.3f' % corr)
@@ -83,6 +132,9 @@ print('Avg RMSE:', np.average(rmse))
 y1 = np.exp(y_test)-1
 y2 = np.exp(yhat)-1
 
+r2 = r2_score(y1, y2)
+r2 =round(r2,2)
+
 corr, _ = pearsonr(y1, y2)
 corr = round(corr, 2)
 print('Pearsons correlation: %.3f' % corr)
@@ -90,11 +142,11 @@ rmse= np.sqrt(np.square(y1- y2))
 print('Avg RMSE:', np.average(rmse))
 rmse = round(np.average(rmse), 2)
 
-text0 = "Corr:"+str(corr)+"  RMSE:"+str(rmse)
+text0 = "R2:"+str(r2)+"  RMSE:"+str(rmse)
 
 plt.figure(figsize=(5, 3), dpi=80)
 plt.scatter(y1, y2)
-plt.title('XGBoost Predictions: y')
+plt.title('XGBoost Predictions')
 p1, p2 = [0, max(y1)], [0, max(y1)]
 plt.plot(p1, p2, color ='red') 
 plt.text(0, 750, text0, fontsize=12)
@@ -164,6 +216,8 @@ plt.ylabel('log(pred)')
 plt.show()
 
 
+
+
 # calculate Pearson's correlation
 corr, _ = pearsonr(y_test, pred2)
 print('Pearsons correlation: %.3f' % corr)
@@ -174,6 +228,9 @@ print('Avg RMSE:', np.average(rmse))
 y1 = np.exp(y_test)-1
 y2 = np.exp(pred2)-1
 
+r2 = r2_score(y1, y2)
+r2 = round(r2, 2)
+
 corr, _ = pearsonr(y1, y2)
 corr = round(corr, 2)
 print('Pearsons correlation: %.2f' % corr)
@@ -181,7 +238,7 @@ rmse= np.sqrt(np.square(y1- y2))
 print('Avg RMSE:', np.average(rmse))
 rmse = round(np.average(rmse), 2)
 
-text1 = "Corr:"+str(corr)+"  RMSE:"+str(rmse)
+text1 = "R2:"+str(r2)+"  RMSE:"+str(rmse)
 
 plt.figure(figsize=(5, 3), dpi=80)
 plt.scatter(y1, y2)
@@ -206,6 +263,7 @@ pred1 = [item for sublist in y_pred for item in sublist]
 pred2= np.array(pred1)
 
 
+
 plt.figure(figsize=(5, 3), dpi=80)
 plt.scatter(y_test, pred2)
 plt.title('Linear Regression Predictions')
@@ -227,14 +285,17 @@ print('Avg RMSE:', np.average(rmse))
 y1 = np.exp(y_test)-1
 y2 = np.exp(pred2)-1
 
-corr, _ = pearsonr(y1, y2)
-corr = round(corr, 2)
+
+r2 = r2_score(y1, y2)
+r2 =round(r2,2)
+
+
 print('Pearsons correlation: %.2f' % corr)
 rmse= np.sqrt(np.square(y1- y2))
 print('Avg RMSE:', np.average(rmse))
 rmse = round(np.average(rmse), 2)
 
-text1 = "Corr:"+str(corr)+"  RMSE:"+str(rmse)
+text1 = "R2:"+str(r2)+"  RMSE:"+str(rmse)
 
 plt.figure(figsize=(5, 3), dpi=80)
 plt.scatter(y1, y2)
@@ -262,6 +323,10 @@ pred2= np.array(pred1)
 
 y1 = np.exp(y_test)-1
 y2 = np.exp(pred2)-1
+
+
+r2 = r2_score(y1, y2)
+r2 =round(r2,2)
 
 corr, _ = pearsonr(y1, y2)
 corr = round(corr, 2)
