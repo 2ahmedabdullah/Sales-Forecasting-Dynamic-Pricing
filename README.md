@@ -38,8 +38,6 @@
 
 ![1](plots/21.png)
 
-![1](plots/22.png)
-
 ![1](plots/23.png)
 
 ![1](plots/24.png)
